@@ -69,8 +69,10 @@ export function recmaDocument(options) {
    *   Nothing.
    */
   return function (tree, file) {
-    /** @type {Array<[string, string] | string>} */
+    /** @type {Array<[string, Identifier | Literal | string] | string>} */
     const exportedValues = []
+    /** @type {Array<string>} */
+    const exportAllValues = []
     /** @type {Array<Directive | ModuleDeclaration | Statement>} */
     const replacement = []
     let exportAllCount = 0
@@ -276,26 +278,29 @@ export function recmaDocument(options) {
         argument: {
           type: 'ObjectExpression',
           properties: [
-            ...Array.from({length: exportAllCount}).map(
+            ...exportAllValues.map(
               /**
-               * @param {undefined} _
-               *   Nothing.
-               * @param {number} index
-               *   Index.
+               * @param {string} name
+               *   Name of the variable holding the imported module.
                * @returns {SpreadElement}
                *   Node.
                */
-              function (_, index) {
+              function (name) {
                 return {
                   type: 'SpreadElement',
-                  argument: {
-                    type: 'Identifier',
-                    name: '_exportAll' + (index + 1)
-                  }
+                  argument: {type: 'Identifier', name}
                 }
               }
             ),
             ...exportedValues.map(function (d) {
+              /** @type {Identifier | Literal} */
+              const key =
+                typeof d === 'string'
+                  ? {type: 'Identifier', name: d}
+                  : typeof d[1] === 'string'
+                    ? {type: 'Identifier', name: d[1]}
+                    : d[1]
+
               /** @type {Property} */
               const property = {
                 type: 'Property',
@@ -303,10 +308,7 @@ export function recmaDocument(options) {
                 method: false,
                 computed: false,
                 shorthand: typeof d === 'string',
-                key: {
-                  type: 'Identifier',
-                  name: typeof d === 'string' ? d : d[1]
-                },
+                key,
                 value: {
                   type: 'Identifier',
                   name: typeof d === 'string' ? d : d[0]
@@ -512,6 +514,8 @@ export function recmaDocument(options) {
           // //=> const {a, c: b} = await import('d')
           // export * from 'a'
           // //=> const _exportAll0 = await import('a')
+          // export * as a from 'b'
+          // //=> const _exportAll1 = await import('b')
           // ```
           /** @type {ImportExpression} */
           const argument = {type: 'ImportExpression', source: node.source}
@@ -524,23 +528,33 @@ export function recmaDocument(options) {
             node.specifiers.length === 0
           ) {
             replace = {type: 'ExpressionStatement', expression: init}
+          } else if (node.type === 'ExportAllDeclaration') {
+            const name = '_exportAll' + ++exportAllCount
+
+            replace = {
+              type: 'VariableDeclaration',
+              kind: 'const',
+              declarations: [
+                {
+                  type: 'VariableDeclarator',
+                  id: {type: 'Identifier', name},
+                  init
+                }
+              ]
+            }
+
+            if (node.exported) {
+              // `export * as a from 'b'` exports a namespace object as `a`.
+              exportedValues.push([name, node.exported])
+            } else {
+              // `export * from 'a'` spreads all exports.
+              exportAllValues.push(name)
+            }
           } else {
             replace = {
               type: 'VariableDeclaration',
               kind: 'const',
-              declarations:
-                node.type === 'ExportAllDeclaration'
-                  ? [
-                      {
-                        type: 'VariableDeclarator',
-                        id: {
-                          type: 'Identifier',
-                          name: '_exportAll' + ++exportAllCount
-                        },
-                        init
-                      }
-                    ]
-                  : specifiersToDeclarations(node.specifiers, init)
+              declarations: specifiersToDeclarations(node.specifiers, init)
             }
           }
         } else if (node.declaration) {

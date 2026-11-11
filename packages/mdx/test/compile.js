@@ -1157,6 +1157,37 @@ test('@mdx-js/mdx: compile', async function (t) {
       assert.equal(await get(), 3.14)
     }
   )
+
+  await t.test(
+    'should support `export * as` in a function body (GH-2606)',
+    async function () {
+      const document = String(
+        await compile('export * as foo from "foo"\nexport * from "bar"\n\na', {
+          outputFormat: 'function-body'
+        })
+      )
+
+      assert.match(document, /const _exportAll1 = await import/)
+      assert.match(document, /const _exportAll2 = await import/)
+      assert.match(
+        document,
+        /return {\n {2}\.\.\._exportAll2,\n {2}foo: _exportAll1,/
+      )
+    }
+  )
+
+  await t.test(
+    'should support `export * as` with a non-identifier name in a function body (GH-2606)',
+    async function () {
+      const document = String(
+        await compile('export * as "foo bar" from "foo"\n\na', {
+          outputFormat: 'function-body'
+        })
+      )
+
+      assert.match(document, /return {\n {2}"foo bar": _exportAll1,/)
+    }
+  )
 })
 
 test('@mdx-js/mdx: compile (JSX)', async function (t) {

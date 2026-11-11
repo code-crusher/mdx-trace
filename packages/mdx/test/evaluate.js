@@ -347,6 +347,53 @@ test('@mdx-js/mdx: evaluate', async function (t) {
   )
 
   await t.test(
+    'should support an `export * as from` w/ `baseUrl`',
+    async function () {
+      const result = await evaluate(
+        'export * as data from "./context/data.js"',
+        {baseUrl: import.meta.url, ...runtime}
+      )
+
+      const data = /** @type {Record<string, unknown>} */ (result.data)
+      assert.equal(data.number, 3.14)
+      assert.equal(data.default, 6.28)
+      assert.deepEqual(data.array, [1, 2])
+    }
+  )
+
+  await t.test(
+    'should support an `export * as from` with a non-identifier name w/ `baseUrl`',
+    async function () {
+      const result = await evaluate(
+        'export * as "foo bar" from "./context/data.js"',
+        {baseUrl: import.meta.url, ...runtime}
+      )
+
+      const data = /** @type {Record<string, unknown>} */ (result['foo bar'])
+      assert.equal(data.number, 3.14)
+    }
+  )
+
+  await t.test(
+    'should support an `export * as from` followed by an `export * from` w/ `baseUrl`',
+    async function () {
+      const result = await evaluate(
+        'export * as components from "./context/components.js"\nexport * from "./context/data.js"',
+        {baseUrl: import.meta.url, ...runtime}
+      )
+
+      const components = /** @type {Record<string, unknown>} */ (
+        result.components
+      )
+      assert.ok(components.Pill)
+      assert.ok(components.Layout)
+      assert.equal(result.number, 3.14)
+      assert.deepEqual(result.array, [1, 2])
+      assert.equal(typeof result.default, 'function')
+    }
+  )
+
+  await t.test(
     'should support an `export * from`, but prefer explicit exports, w/ `baseUrl`',
     async function () {
       const result = await evaluate(
