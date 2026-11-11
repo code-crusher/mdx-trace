@@ -152,6 +152,108 @@ test('remark-mdx: parse', async function (t) {
       ]
     })
   })
+
+  await t.test('should keep curly braces in image alt', function () {
+    const tree = basic.parse('![{name}](image.png)')
+
+    clean(tree)
+
+    assert.deepEqual(tree, {
+      type: 'root',
+      children: [
+        {
+          type: 'paragraph',
+          children: [
+            {type: 'image', title: null, url: 'image.png', alt: '{name}'}
+          ]
+        }
+      ]
+    })
+  })
+
+  await t.test(
+    'should keep curly braces in image alt w/ emphasis',
+    function () {
+      const tree = basic.parse('![*a* {name} *b*](image.png)')
+
+      clean(tree)
+
+      assert.deepEqual(tree, {
+        type: 'root',
+        children: [
+          {
+            type: 'paragraph',
+            children: [
+              {type: 'image', title: null, url: 'image.png', alt: 'a {name} b'}
+            ]
+          }
+        ]
+      })
+    }
+  )
+
+  await t.test(
+    'should keep curly braces in image alt of references',
+    function () {
+      const tree = basic.parse('![{name}][image]\n\n[image]: image.png')
+
+      clean(tree)
+
+      assert.deepEqual(tree, {
+        type: 'root',
+        children: [
+          {
+            type: 'paragraph',
+            children: [
+              {
+                type: 'imageReference',
+                alt: '{name}',
+                identifier: 'image',
+                label: 'image',
+                referenceType: 'full'
+              }
+            ]
+          },
+          {
+            type: 'definition',
+            title: null,
+            url: 'image.png',
+            identifier: 'image',
+            label: 'image'
+          }
+        ]
+      })
+    }
+  )
+
+  await t.test('should keep parsing expressions in link text', function () {
+    const tree = basic.parse('[{name}](image.png)')
+
+    clean(tree)
+
+    assert.deepEqual(tree, {
+      type: 'root',
+      children: [
+        {
+          type: 'paragraph',
+          children: [
+            {
+              type: 'link',
+              title: null,
+              url: 'image.png',
+              children: [
+                {
+                  type: 'mdxTextExpression',
+                  data: {estree: undefined},
+                  value: 'name'
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    })
+  })
 })
 
 test('remark-mdx: stringify', async function (t) {
@@ -453,6 +555,21 @@ test('remark-mdx: stringify', async function (t) {
         ]
       }),
       'Alpha {1 + 1} bravo.\n'
+    )
+  })
+
+  await t.test('should serialize curly braces in image alt', function () {
+    assert.equal(
+      basic.stringify({
+        type: 'root',
+        children: [
+          {
+            type: 'paragraph',
+            children: [{type: 'image', url: 'https://mdxjs.com', alt: '{name}'}]
+          }
+        ]
+      }),
+      '![\\{name}](https://mdxjs.com)\n'
     )
   })
 })
