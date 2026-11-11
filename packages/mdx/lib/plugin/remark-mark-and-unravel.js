@@ -27,7 +27,7 @@ export function remarkMarkAndUnravel() {
     visit(tree, function (node, index, parent) {
       let offset = -1
       let all = true
-      let oneOrMore = false
+      let oneOrMoreJsx = false
 
       if (parent && typeof index === 'number' && node.type === 'paragraph') {
         const children = node.children
@@ -35,11 +35,11 @@ export function remarkMarkAndUnravel() {
         while (++offset < children.length) {
           const child = children[offset]
 
-          if (
-            child.type === 'mdxJsxTextElement' ||
-            child.type === 'mdxTextExpression'
-          ) {
-            oneOrMore = true
+          if (child.type === 'mdxJsxTextElement') {
+            oneOrMoreJsx = true
+          } else if (child.type === 'mdxTextExpression') {
+            // Inline expressions don’t count towards unraveling, but neither
+            // do they stop it (there may be JSX later in the paragraph).
           } else if (
             child.type === 'text' &&
             collapseWhiteSpace(child.value, {style: 'html', trim: true}) === ''
@@ -51,7 +51,11 @@ export function remarkMarkAndUnravel() {
           }
         }
 
-        if (all && oneOrMore) {
+        // Only unravel when there is JSX.
+        // Whitespace between flow expressions is not allowed in hast roots,
+        // whereas whitespace in paragraphs is meaningful.
+        // See <https://github.com/mdx-js/mdx/issues/2653>.
+        if (all && oneOrMoreJsx) {
           offset = -1
 
           /** @type {Array<RootContent>} */

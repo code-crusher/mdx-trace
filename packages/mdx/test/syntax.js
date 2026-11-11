@@ -502,13 +502,25 @@ test('@mdx-js/mdx: syntax: MDX (JSX)', async function (t) {
   )
 
   await t.test(
-    'should unravel expression (text) as only children',
+    'should keep the paragraph for adjacent expressions as only children',
     async function () {
       assert.equal(
         renderToStaticMarkup(
           React.createElement(await run(await compile('{1}{2}')))
         ),
-        '1\n2'
+        '<p>12</p>'
+      )
+    }
+  )
+
+  await t.test(
+    'should keep whitespace between adjacent expressions as only children',
+    async function () {
+      assert.equal(
+        renderToStaticMarkup(
+          React.createElement(await run(await compile('{1} {2}')))
+        ),
+        '<p>1 2</p>'
       )
     }
   )
@@ -521,6 +533,18 @@ test('@mdx-js/mdx: syntax: MDX (JSX)', async function (t) {
           React.createElement(await run(await compile('{1}\n{2}')))
         ),
         '1\n2'
+      )
+    }
+  )
+
+  await t.test(
+    'should unravel expressions together with JSX as only children',
+    async function () {
+      assert.equal(
+        renderToStaticMarkup(
+          React.createElement(await run(await compile('{1} <a>b</a> {2}')))
+        ),
+        '1\n<a>b</a>\n2'
       )
     }
   )
