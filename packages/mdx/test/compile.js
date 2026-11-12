@@ -829,6 +829,42 @@ test('@mdx-js/mdx: compile', async function (t) {
     }
   )
 
+  // See: https://github.com/mdx-js/mdx/issues/2444
+  await t.test(
+    'should not call `_createMdxContent` as a function (hooks must not be conditional)',
+    async function () {
+      // `_createMdxContent` may use hooks (e.g. through a provider’s
+      // `useMDXComponents`). It should therefore always be rendered as a
+      // component, never invoked directly, so that rendering `MDXContent`
+      // uses the same number of hooks with and without a `wrapper`.
+      assert.equal(
+        String(await compile('', {providerImportSource: '@mdx-js/react'})),
+        [
+          'import {Fragment as _Fragment, jsx as _jsx} from "react/jsx-runtime";',
+          'import {useMDXComponents as _provideComponents} from "@mdx-js/react";',
+          'function _createMdxContent(props) {',
+          '  return _jsx(_Fragment, {});',
+          '}',
+          'export default function MDXContent(props = {}) {',
+          '  const {wrapper: MDXLayout} = {',
+          '    ..._provideComponents(),',
+          '    ...props.components',
+          '  };',
+          '  return MDXLayout ? _jsx(MDXLayout, {',
+          '    ...props,',
+          '    children: _jsx(_createMdxContent, {',
+          '      ...props',
+          '    })',
+          '  }) : _jsx(_createMdxContent, {',
+          '    ...props',
+          '  });',
+          '}',
+          ''
+        ].join('\n')
+      )
+    }
+  )
+
   await t.test(
     'should detect as `mdx` by default',
 
@@ -1349,9 +1385,7 @@ test('@mdx-js/mdx: compile (JSX)', async function (t) {
           '    ..._provideComponents(),',
           '    ...props.components',
           '  };',
-          '  return MDXLayout ? <MDXLayout {...props}><_createMdxContent {...props} /></MDXLayout> : _jsx(_createMdxContent, {
-              ...props
-            });',
+          '  return MDXLayout ? <MDXLayout {...props}><_createMdxContent {...props} /></MDXLayout> : <_createMdxContent {...props} />;',
           '}',
           ''
         ].join('\n')
@@ -1393,9 +1427,9 @@ test('@mdx-js/mdx: compile (JSX)', async function (t) {
           '    children: _jsx(_createMdxContent, {',
           '      ...props',
           '    })',
-          '  }) : _jsx(_createMdxContent, {
-              ...props
-            });',
+          '  }) : _jsx(_createMdxContent, {',
+          '    ...props',
+          '  });',
           '}',
           ''
         ].join('\n')
@@ -1437,9 +1471,9 @@ test('@mdx-js/mdx: compile (JSX)', async function (t) {
           '    children: _jsx(_createMdxContent, {',
           '      ...props',
           '    })',
-          '  }) : _jsx(_createMdxContent, {
-              ...props
-            });',
+          '  }) : _jsx(_createMdxContent, {',
+          '    ...props',
+          '  });',
           '}',
           ''
         ].join('\n')
